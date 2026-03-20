@@ -11,8 +11,8 @@ import { VapiService, CallStatus } from './vapi.service';
 export class App {
   vapi = inject(VapiService);
 
-  apiKey = signal('');
-  assistantId = signal('');
+  apiKey = signal('c7c09407-de0d-4563-9856-179361dabd43');
+  assistantId = signal('b5c8fa77-b6e5-4be0-9fee-0c2f87f5f3df');
   configured = signal(false);
 
   configure() {
