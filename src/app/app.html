@@ -59,29 +59,73 @@
     @if (configured()) {
       <div class="bg-slate-800 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-5">
 
-        <!-- Status -->
+        <!-- Status bar -->
         <div class="flex items-center justify-between">
-          <span [class]="'inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold ' + statusColor(vapi.status())">
-            @if (vapi.status() === 'active') {
-              <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+          <div class="flex items-center gap-2">
+            <span [class]="'inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold ' + statusColor(vapi.status())">
+              @if (vapi.status() === 'active') {
+                <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+              }
+              {{ statusLabel(vapi.status()) }}
+            </span>
+
+            <!-- Indicador de permiso de micrófono -->
+            @if (vapi.micPermission() === 'denied') {
+              <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-900/50 text-red-400 border border-red-700">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636" />
+                </svg>
+                Mic bloqueado
+              </span>
             }
-            {{ statusLabel(vapi.status()) }}
-          </span>
+            @if (vapi.micPermission() === 'granted' && vapi.status() === 'idle') {
+              <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-900/40 text-green-400">
+                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 1a4 4 0 014 4v6a4 4 0 01-8 0V5a4 4 0 014-4z"/>
+                </svg>
+                Mic listo
+              </span>
+            }
+          </div>
+
           <button (click)="reset()" class="text-slate-500 hover:text-slate-300 text-xs transition">
             Cambiar config
           </button>
         </div>
 
-        <!-- Volume visualizer -->
-        @if (vapi.status() === 'active') {
-          <div class="flex items-center gap-1 justify-center h-10">
-            @for (bar of [1,2,3,4,5,6,7,8]; track bar) {
-              <div
-                class="w-1.5 rounded-full bg-violet-500 transition-all duration-100"
-                [style.height.px]="4 + (vapi.volumeLevel() * 36 * (0.4 + (bar % 3) * 0.3))"
-              ></div>
-            }
+        <!-- Visualizador de volumen / animación de conectando -->
+        @if (vapi.status() === 'active' || vapi.status() === 'connecting') {
+          <div class="flex items-center justify-center">
+            <div
+              class="flex items-end gap-0.5 px-4 py-3 rounded-xl transition-all duration-200"
+              [style.box-shadow]="vapi.isSpeaking() ? '0 0 0 2px #4ade80, 0 0 16px 2px rgba(74,222,128,0.25)' : 'none'"
+              [style.background]="vapi.isSpeaking() ? 'rgba(74,222,128,0.07)' : 'transparent'"
+            >
+              @for (bar of [1,2,3,4,5,6,7,8,9,10,11,12]; track bar) {
+                @if (vapi.status() === 'connecting') {
+                  <div
+                    class="w-1.5 rounded-full bg-yellow-500/50 animate-pulse"
+                    style.height.px="6"
+                    [style.animation-delay]="(bar * 0.07) + 's'"
+                  ></div>
+                } @else {
+                  <div
+                    class="w-1.5 rounded-full transition-all duration-75"
+                    [style.background-color]="vapi.isSpeaking() ? '#4ade80' : '#8b5cf6'"
+                    [style.height.px]="barHeight(bar)"
+                  ></div>
+                }
+              }
+            </div>
           </div>
+
+          <!-- Indicador "hablando" -->
+          @if (vapi.isSpeaking()) {
+            <div class="flex items-center justify-center gap-1.5 -mt-2">
+              <span class="w-1.5 h-1.5 rounded-full bg-green-400 animate-ping"></span>
+              <span class="text-xs text-green-400 font-medium">Escuchando...</span>
+            </div>
+          }
         }
 
         <!-- Call controls -->
@@ -89,7 +133,8 @@
           @if (vapi.status() === 'idle') {
             <button
               (click)="startCall()"
-              class="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-white font-semibold rounded-xl py-3 transition text-sm"
+              [disabled]="vapi.micPermission() === 'denied'"
+              class="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-xl py-3 transition text-sm"
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -121,8 +166,9 @@
                 </svg>
                 Silenciado
               } @else {
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M12 6v12m0 0l-3-3m3 3l3-3M9 10a3 3 0 000 4" />
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 1a4 4 0 014 4v6a4 4 0 01-8 0V5a4 4 0 014-4z"/>
+                  <path d="M19 10a1 1 0 10-2 0 5 5 0 01-10 0 1 1 0 10-2 0 7 7 0 006 6.93V19H9a1 1 0 000 2h6a1 1 0 000-2h-2v-2.07A7 7 0 0019 10z"/>
                 </svg>
                 Micrófono
               }
@@ -144,7 +190,7 @@
         @if (vapi.transcript().length > 0) {
           <div class="border-t border-slate-700 pt-4">
             <p class="text-xs font-medium text-slate-400 mb-3">Transcripción</p>
-            <div class="space-y-2 max-h-48 overflow-y-auto pr-1">
+            <div #transcriptContainer class="space-y-2 max-h-48 overflow-y-auto pr-1 scroll-smooth">
               @for (msg of vapi.transcript(); track $index) {
                 <div [class]="'flex ' + (msg.role === 'user' ? 'justify-end' : 'justify-start')">
                   <div [class]="'max-w-[80%] px-3 py-2 rounded-xl text-xs ' + (msg.role === 'user' ? 'bg-violet-600 text-white' : 'bg-slate-700 text-slate-200')">
